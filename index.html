@@ -3,16 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>UAE EMERGENCY GUARDIAN | v3.1</title>
+    <title>UAE EMERGENCY GUARDIAN | v3.2</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="env.js"></script>
     <style>
         :root { --bg: #0f172a; --panel: #1e293b; --accent: #38bdf8; --danger: #ef4444; --text: #f8fafc; --sub: #94a3b8; }
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; overflow: hidden; height: 100vh; }
-        #app { display: none; grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: 100vh; }
-        @media (min-width: 900px) { #app { display: grid; grid-template-columns: 420px 1fr; grid-template-rows: 1fr; } }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         
-        .sidebar { background: var(--panel); border-right: 1px solid #334155; display: flex; flex-direction: column; overflow: hidden; }
+        /* Layout: Resizable container */
+        #app { display: none; flex-direction: column; height: 100vh; width: 100%; }
+        .sidebar { background: var(--panel); min-height: 200px; height: 55%; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* Drag handle to resize map vs sidebar */
+        .resizer { height: 10px; background: #334155; cursor: ns-resize; display: flex; align-items: center; justify-content: center; font-size: 8px; color: var(--sub); }
+        .resizer::after { content: "═══"; }
+
+        #map { flex: 1; background: #000; touch-action: auto; }
+
         .content-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
         .card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; }
         
@@ -20,12 +27,11 @@
         .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; border-radius: 4px; font-size: 0.75rem; font-weight: bold; color: var(--sub); }
         .tab.active { background: var(--accent); color: #000; }
         
-        .scroll-box { height: 140px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; font-size: 0.85rem; }
+        .scroll-box { height: 130px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; font-size: 0.85rem; }
         .input-grp { display: flex; gap: 5px; margin-top: 8px; }
         input { background: #1e293b; color: white; border: 1px solid #334155; padding: 10px; border-radius: 6px; flex: 1; }
         button { background: var(--accent); color: #000; border: none; font-weight: bold; cursor: pointer; padding: 10px; border-radius: 6px; }
 
-        #map { background: #000; width: 100%; height: 100%; }
         .portal { position: fixed; inset: 0; z-index: 9999; background: #0f172a; display: flex; flex-direction: column; align-items: center; justify-content: center; }
     </style>
 </head>
@@ -38,10 +44,10 @@
 </div>
 
 <div id="app">
-    <aside class="sidebar">
-        <div style="background: #1e1b4b; padding: 15px; border-bottom: 3px solid var(--danger);">
+    <aside class="sidebar" id="sidebar">
+        <div style="background: #1e1b4b; padding: 12px; border-bottom: 3px solid var(--danger);">
             <h1 style="margin:0; font-size:1rem;">EMERGENCY SITREP</h1>
-            <p id="timer" style="font-size:0.75rem; color:var(--accent); margin:5px 0 0;">SYNCING...</p>
+            <p id="timer" style="font-size:0.7rem; color:var(--accent); margin:5px 0 0;">SYNCING...</p>
         </div>
 
         <nav class="tab-nav">
@@ -52,7 +58,7 @@
 
         <div id="ai-tab" class="content-area">
             <div class="card">
-                <small style="color:var(--accent)">TACTICAL AI</small>
+                <small style="color:var(--accent)">GUARDIAN AI</small>
                 <div id="chat-hist" class="scroll-box">"Standing by for safety queries."</div>
                 <div class="input-grp">
                     <input type="text" id="ai-in" placeholder="Ask AI...">
@@ -63,7 +69,6 @@
                 <small style="color:var(--accent)">INTEL FEED</small>
                 <div id="news-list" class="scroll-box">Fetching news...</div>
             </div>
-            <button style="background:var(--danger); color:white;" onclick="checkGPS()">GPS SAFETY CHECK</button>
         </div>
 
         <div id="media-tab" class="content-area" style="display:none;">
@@ -75,15 +80,22 @@
 
         <div id="radar-tab" class="content-area" style="display:none;">
             <div class="card">
-                <small style="color:var(--accent)">FLIGHT SEARCH</small>
+                <small style="color:var(--accent)">FLIGHT TRACKER</small>
                 <div class="input-grp">
-                    <input type="text" id="fl-in" placeholder="e.g. EK530">
-                    <button onclick="searchFlight()">TRACK</button>
+                    <input type="text" id="fl-in" placeholder="Search Flight (e.g. EK530)">
+                    <button onclick="searchFlight()">SEARCH</button>
                 </div>
-                <div id="fl-out" style="margin-top:10px; font-size:0.8rem; color:var(--sub);"></div>
+                <div id="fl-out" style="margin-top:10px; font-size:0.8rem; font-weight:bold; color:var(--danger);"></div>
+            </div>
+            <div class="card">
+                <small style="color:var(--accent)">LIVE AIRSPACE LIST</small>
+                <div id="flight-list" class="scroll-box">Scanning airspace...</div>
             </div>
         </div>
     </aside>
+
+    <div class="resizer" id="resizer"></div>
+
     <main id="map"></main>
 </div>
 
@@ -92,7 +104,6 @@
     const map = L.map('map', { zoomControl: false }).setView([24.45, 54.37], 10);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-    // Restore Danger Zones
     const zones = [
         {n: "Khalifa City", p: [24.41, 54.58]}, {n: "Saadiyat", p: [24.53, 54.43]},
         {n: "MBZ City", p: [24.31, 54.54]}, {n: "Bani Yas", p: [24.28, 54.63]}
@@ -101,18 +112,12 @@
 
     function init() {
         document.getElementById('portal').style.display = 'none';
-        document.getElementById('app').style.display = 'grid';
+        document.getElementById('app').style.display = 'flex';
         setTimeout(() => map.invalidateSize(), 200);
-        fetchNews(); startClock();
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(p => {
-                const loc = [p.coords.latitude, p.coords.longitude];
-                L.circle(loc, {radius: 500, color: '#38bdf8'}).addTo(map);
-                map.flyTo(loc, 11);
-            });
-        }
+        fetchNews(); fetchAllFlights(); startClock();
     }
 
+    // AI Logic Fix
     async function askAI() {
         const inp = document.getElementById('ai-in');
         const hist = document.getElementById('chat-hist');
@@ -125,27 +130,40 @@
         try {
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${CONFIG.GEMINI_KEY}`, {
                 method: "POST", headers: {"Content-Type":"application/json"},
-                body: JSON.stringify({contents:[{parts:[{text:"Emergency advice for: "+txt}]}]})
+                body: JSON.stringify({contents:[{parts:[{text:"Provide tactical emergency advice for: "+txt}]}]})
             });
             const d = await r.json();
             hist.innerHTML += `<div style="color:var(--accent); margin-bottom:10px;">${d.candidates[0].content.parts[0].text}</div>`;
-        } catch(e) { hist.innerHTML += `<div style="color:red">AI Error.</div>`; }
+        } catch(e) { hist.innerHTML += `<div style="color:red">AI link error. Check env.js key.</div>`; }
         hist.scrollTop = hist.scrollHeight;
+    }
+
+    // Flight List + Search
+    async function fetchAllFlights() {
+        try {
+            const r = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${CONFIG.FLIGHT_KEY}&limit=10`);
+            const d = await r.json();
+            document.getElementById('flight-list').innerHTML = d.data.map(f => `
+                <div style="padding:5px 0; border-bottom:1px solid #334155;">
+                    <b>${f.flight.iata}</b>: ${f.departure.iata} ➔ ${f.arrival.iata} [${f.flight_status.toUpperCase()}]
+                </div>
+            `).join('');
+        } catch(e) {}
     }
 
     async function searchFlight() {
         const fn = document.getElementById('fl-in').value.trim();
         const out = document.getElementById('fl-out');
         if(!fn) return;
-        out.innerText = "Querying Radar...";
+        out.innerText = "Searching...";
         try {
             const r = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${CONFIG.FLIGHT_KEY}&flight_iata=${fn}`);
             const d = await r.json();
             if(d.data && d.data.length > 0) {
                 const f = d.data[0];
-                out.innerHTML = `STATUS: <b style="color:red">${f.flight_status.toUpperCase()}</b><br>${f.departure.iata} ➔ ${f.arrival.iata}`;
-            } else { out.innerText = "No flight found."; }
-        } catch(e) { out.innerText = "Radar Disrupted."; }
+                out.innerHTML = `${f.flight.iata} STATUS: ${f.flight_status.toUpperCase()}`;
+            } else { out.innerText = "No results found."; }
+        } catch(e) { out.innerText = "Radar error."; }
     }
 
     async function fetchNews() {
@@ -156,6 +174,29 @@
         } catch(e) {}
     }
 
+    // Resizer Logic
+    const resizer = document.getElementById('resizer');
+    const sidebar = document.getElementById('sidebar');
+    let isResizing = false;
+
+    resizer.addEventListener('mousedown', (e) => isResizing = true);
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        const offsetTop = e.clientY;
+        sidebar.style.height = `${offsetTop}px`;
+        map.invalidateSize();
+    });
+    document.addEventListener('mouseup', () => isResizing = false);
+    
+    // Mobile touch support for resizing
+    resizer.addEventListener('touchstart', (e) => isResizing = true);
+    document.addEventListener('touchmove', (e) => {
+        if (!isResizing) return;
+        sidebar.style.height = `${e.touches[0].clientY}px`;
+        map.invalidateSize();
+    });
+    document.addEventListener('touchend', () => isResizing = false);
+
     function switchTab(t) {
         document.getElementById('ai-tab').style.display = t==='ai'?'flex':'none';
         document.getElementById('media-tab').style.display = t==='media'?'flex':'none';
@@ -163,9 +204,7 @@
         document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
         event.currentTarget.classList.add('active');
     }
-
     function startClock() { setInterval(() => { document.getElementById('timer').innerText = `LIVE: ${new Date().toLocaleTimeString()}`; }, 1000); }
-    function checkGPS() { alert("Scan Complete. Status: Outside impact sectors."); }
 </script>
 </body>
 </html>
