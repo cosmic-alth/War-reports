@@ -3,191 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>UAE EMERGENCY GUARDIAN | LIVE AI SITREP</title>
+    <title>UAE EMERGENCY GUARDIAN | LIVE INTEL</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { --bg: #0f172a; --panel: #1e293b; --accent: #38bdf8; --danger: #ef4444; --safe: #22c55e; --text: #f8fafc; --sub: #94a3b8; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
+        /* Splash Screen / Entry Portal */
+        .handshake-btn { 
+            position: fixed; inset: 0; z-index: 9999; background: radial-gradient(circle at center, #1e293b, #0f172a); 
+            color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; border: none; padding: 20px;
+        }
+        .portal-card { background: rgba(255,255,255,0.05); padding: 30px; border-radius: 20px; border: 1px solid var(--accent); text-align: center; backdrop-filter: blur(10px); max-width: 320px; }
+        .open-btn { 
+            background: var(--accent); color: #000; font-weight: 800; padding: 15px 40px; border-radius: 50px; 
+            font-size: 1.1rem; border: none; cursor: pointer; margin-top: 20px; box-shadow: 0 0 20px var(--accent);
+            animation: pulse-blue 2s infinite;
+        }
+        @keyframes pulse-blue { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* Dashboard Layout */
         #app { display: flex; flex-direction: column; height: 100vh; width: 100%; }
         @media (min-width: 900px) { #app { flex-direction: row; } }
-
-        /* Sidebar: Top on mobile, Left on desktop */
-        .sidebar { background: var(--panel); border-bottom: 1px solid #334155; display: flex; flex-direction: column; height: 60%; overflow: hidden; z-index: 100; }
+        .sidebar { background: var(--panel); border-bottom: 1px solid #334155; display: flex; flex-direction: column; height: 55%; overflow: hidden; z-index: 1000; }
         @media (min-width: 900px) { .sidebar { width: 420px; height: 100%; border-right: 1px solid #334155; border-bottom: none; } }
+        #map { flex: 1; width: 100%; background: #0b0f19; height: 45%; }
 
-        /* Map: Bottom on mobile, Right on desktop */
-        #map { flex: 1; width: 100%; background: #0b0f19; height: 40%; }
-        @media (min-width: 900px) { #map { height: 100%; } }
-
-        .content-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; -webkit-overflow-scrolling: touch; }
+        /* General UI Elements */
+        #alert-box { background: var(--danger); color: white; padding: 10px; font-weight: bold; text-align: center; font-size: 0.8rem; display: none; }
         .status-header { background: #1e1b4b; padding: 12px; border-bottom: 3px solid var(--danger); }
-        
-        .card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; }
-        .chat-box { height: 100px; overflow-y: auto; font-size: 0.85rem; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px; margin-bottom: 8px; border: 1px solid #334155; }
-        .ai-line { color: var(--accent); margin-bottom: 8px; border-left: 2px solid var(--accent); padding-left: 8px; }
-        .user-line { color: var(--text); margin-bottom: 8px; text-align: right; font-style: italic; }
-
         .tab-nav { display: flex; background: #0f172a; padding: 5px; gap: 5px; }
-        .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; border-radius: 4px; font-size: 0.75rem; font-weight: 600; color: var(--sub); }
+        .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; border-radius: 4px; font-size: 0.7rem; font-weight: 700; color: var(--sub); }
         .tab.active { background: var(--accent); color: #000; }
-        
-        input, button { padding: 10px; border-radius: 6px; border: 1px solid #334155; font-size: 0.85rem; }
-        input { background: #1e293b; color: white; flex: 1; }
-        button { background: var(--accent); color: #000; border: none; font-weight: bold; cursor: pointer; }
-        
-        .flight-list { font-size: 0.7rem; }
-        .flight-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #334155; }
-
-        .handshake-btn { position: fixed; inset: 0; z-index: 9999; background: var(--bg); color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; border: none; cursor: pointer; padding: 20px; }
+        .content-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
+        .card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; }
+        .chat-box, .news-box { height: 120px; overflow-y: auto; font-size: 0.85rem; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; border: 1px solid #334155; }
+        .input-group { display: flex; gap: 5px; margin-top: 8px; }
+        input { background: #1e293b; color: white; flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #334155; }
+        button.action-btn { background: var(--accent); color: #000; border: none; font-weight: bold; cursor: pointer; border-radius: 6px; padding: 10px; }
     </style>
 </head>
 <body>
 
-<button id="handshake" class="handshake-btn">
-    <div style="font-size: 3rem; margin-bottom: 15px;">🛡️</div>
-    <div style="font-weight: bold; letter-spacing: 2px; font-size: 1.2rem;">SECURE INITIALIZATION</div>
-    <div style="color: var(--sub); font-size: 0.8rem; margin-top: 15px;">Connecting Secret AI & Radar Handshake...</div>
-</button>
+<div id="handshake" class="handshake-btn">
+    <div class="portal-card">
+        <div style="font-size: 3.5rem; margin-bottom: 10px;">🛡️</div>
+        <h2 style="margin: 0; letter-spacing: 1px;">GUARDIAN UAE</h2>
+        <p style="color: var(--sub); font-size: 0.85rem; margin-top: 10px;">
+            Emergency SitRep & AI Tactical Radar<br>
+            <span style="color: var(--safe)">● Systems Online</span>
+        </p>
+        <button class="open-btn" onclick="initializeDashboard()">ENTER DASHBOARD</button>
+        <p style="font-size: 0.6rem; color: var(--sub); margin-top: 20px; text-transform: uppercase;">Secure Link Established</p>
+    </div>
+</div>
 
 <div id="app" style="display:none;">
+    <div id="alert-box">⚠️ SECTOR ALERT: ACTIVE MONITORING OF NORTHERN REGIONS</div>
+    
     <aside class="sidebar">
         <div class="status-header">
-            <h1 style="margin:0; font-size:1rem;">UAE EMERGENCY HUB</h1>
-            <p id="timer" style="margin:5px 0 0; font-size:0.7rem; color:white;">BOOTING ENGINES...</p>
+            <h1 style="margin:0; font-size:1rem;">EMERGENCY COMMAND HUB</h1>
+            <p id="timer" style="margin:5px 0 0; font-size:0.7rem; color:var(--accent);">SYNCING...</p>
         </div>
 
         <nav class="tab-nav">
-            <div class="tab active" onclick="switchTab('guide')">AI ADVISOR</div>
-            <div class="tab" onclick="switchTab('flights')">FLIGHT BOARD</div>
+            <div class="tab active" onclick="switchTab('ai')">AI & NEWS</div>
+            <div class="tab" onclick="switchTab('media')">LIVE MEDIA</div>
+            <div class="tab" onclick="switchTab('flights')">FLIGHTS</div>
         </nav>
 
-        <div id="guide-tab" class="content-area">
+        <div id="ai-tab" class="content-area">
             <div class="card">
-                <small style="color:var(--accent); font-weight:bold;">TACTICAL AI</small>
+                <small style="color:var(--accent); font-weight:bold;">LIVE NEWS FEED</small>
+                <div id="news-list" class="news-box">Scanning satellites...</div>
+            </div>
+            <div class="card">
+                <small style="color:var(--accent); font-weight:bold;">TACTICAL AI ADVISOR</small>
                 <div id="chat-history" class="chat-box">
-                    <div class="ai-line">"Encrypted connection established. Monitoring Abu Dhabi sectors. Ask me for safety advice."</div>
+                    <div style="color:var(--accent)">"Encrypted connection confirmed. Ask for sector updates."</div>
                 </div>
-                <div style="display:flex; gap:5px;">
-                    <input type="text" id="ai-input" placeholder="Ask AI something...">
-                    <button onclick="askAI()">SEND</button>
+                <div class="input-group">
+                    <input type="text" id="ai-input" placeholder="Ask AI..." onkeypress="if(event.key==='Enter') askAI()">
+                    <button class="action-btn" onclick="askAI()">SEND</button>
                 </div>
             </div>
-            <button onclick="checkProximity()" style="background:var(--danger); color:white; width:100%;">GPS SAFETY CHECK</button>
+            <button onclick="checkProximity()" style="background:var(--danger); color:white; width:100%; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;">GPS PROXIMITY SCAN</button>
+        </div>
+
+        <div id="media-tab" class="content-area" style="display:none;">
+            <div class="card">
+                <small style="color:var(--accent); font-weight:bold;">LIVE NEWS BROADCAST</small>
+                <div style="margin-top:10px; border-radius: 4px; overflow: hidden; background: #000; aspect-ratio: 16/9;">
+                    <iframe width="100%" height="100%" src="https://www.youtube.com/embed/live_stream?channel=UC83S_M68U6FIdnL77u97L_w" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                </div>
+            </div>
         </div>
 
         <div id="flights-tab" class="content-area" style="display:none;">
             <div class="card">
-                <small style="color:var(--accent); font-weight:bold;">LIVE AIRSPACE FEED</small>
-                <div id="flight-summary" class="flight-list">Loading live radar data...</div>
+                <small style="color:var(--accent); font-weight:bold;">AIRSPACE RADAR</small>
+                <div id="flight-summary" style="margin-top:10px;"></div>
             </div>
         </div>
     </aside>
+
     <main id="map"></main>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // --- CONFIG (DO NOT CHANGE PROCESSED_GEMINI_KEY) ---
     const NEWS_KEY = 'pub_2c5d5364391f4045945da79ca4f87a50'; 
     const FLIGHT_KEY = 'd5e173661faa7a4b822797e42666b6f3';
     const GEMINI_KEY = 'PROCESSED_GEMINI_KEY'; 
     const GEMINI_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
 
     let userLoc = null;
-    const dangerZones = [
-        {name: "Khalifa City", pos: [24.41, 54.58]}, {name: "Saadiyat", pos: [24.53, 54.43]},
-        {name: "MBZ City", pos: [24.31, 54.54]}, {name: "Bani Yas", pos: [24.28, 54.63]}
-    ];
-
     const map = L.map('map', { zoomControl: false }).setView([24.45, 54.37], 10);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-    dangerZones.forEach(z => L.circle(z.pos, {radius: 3000, color: 'red', fillOpacity: 0.2}).addTo(map));
 
-    document.getElementById('handshake').addEventListener('click', function() {
-        this.style.display = 'none';
+    function initializeDashboard() {
+        document.getElementById('handshake').style.display = 'none';
         document.getElementById('app').style.display = 'flex';
-        setTimeout(() => { map.invalidateSize(); }, 300);
-
+        setTimeout(() => map.invalidateSize(), 300);
+        
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(p => {
                 userLoc = [p.coords.latitude, p.coords.longitude];
-                if(userMarker) map.removeLayer(userMarker);
-                userMarker = L.circle(userLoc, {radius: 400, color: '#38bdf8'}).addTo(map).bindPopup("YOU");
-                map.setView(userLoc, 11);
-            }, (err) => { console.warn("GPS Bypassed."); });
+                L.circle(userLoc, {radius: 500, color: '#38bdf8'}).addTo(map).bindPopup("YOU");
+                map.flyTo(userLoc, 11);
+            });
         }
-        fetchActiveFlights(); startTimer();
-    });
+        fetchNews(); fetchActiveFlights(); startTimer();
+    }
 
-    async function fetchActiveFlights() {
-        const listDiv = document.getElementById('flight-summary');
+    async function fetchNews() {
         try {
-            const r = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${FLIGHT_KEY}&limit=15`);
+            const r = await fetch(`https://newsdata.io/api/1/news?apikey=${NEWS_KEY}&q=UAE%20OR%20AbuDhabi&language=en`);
             const d = await r.json();
-            if (d.data) {
-                listDiv.innerHTML = d.data.map(f => `
-                    <div class="flight-row">
-                        <span><b>${f.flight.iata || '??'}</b></span>
-                        <span>${f.departure.iata}➔${f.arrival.iata}</span>
-                        <span style="color:${f.flight_status === 'cancelled' ? 'var(--danger)' : 'var(--safe)'}">${f.flight_status.toUpperCase()}</span>
+            if(d.results) {
+                document.getElementById('news-list').innerHTML = d.results.slice(0, 10).map(n => `
+                    <div style="padding:8px 0; border-bottom:1px solid #334155;">
+                        <a href="${n.link}" target="_blank" style="color:var(--accent); text-decoration:none; font-size:0.8rem;"><b>${n.title}</b></a>
                     </div>
                 `).join('');
+                if(JSON.stringify(d.results).toLowerCase().includes("danger")) document.getElementById('alert-box').style.display = 'block';
             }
-        } catch (e) { listDiv.innerText = "Radar signal lost."; }
+        } catch (e) {}
     }
 
     async function askAI() {
         const input = document.getElementById('ai-input');
         const history = document.getElementById('chat-history');
-        const userText = input.value.trim();
-        if(!userText || GEMINI_KEY === 'PROCESSED_GEMINI_KEY') return;
-
-        history.innerHTML += `<div class="user-line">${userText}</div>`;
+        const text = input.value.trim();
+        if(!text) return;
+        history.innerHTML += `<div style="text-align:right; margin-bottom:5px; font-style:italic; font-size:0.8rem;">${text}</div>`;
         input.value = "";
-        history.scrollTop = history.scrollHeight;
-
         try {
-            const response = await fetch(`${GEMINI_URL}?key=${GEMINI_KEY}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: `System: You are a UAE Emergency AI. Be brief and tactical. Context: Feb 28, 2026 conflict. User asks: ${userText}` }] }]
-                })
+            const r = await fetch(`${GEMINI_URL}?key=${GEMINI_KEY}`, {
+                method: "POST", headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({contents: [{parts: [{text: `Tactical advice for UAE situation: ${text}`}]}]})
             });
-            const data = await response.json();
-            const aiText = data.candidates[0].content.parts[0].text;
-            history.innerHTML += `<div class="ai-line">${aiText}</div>`;
-        } catch (e) {
-            history.innerHTML += `<div class="ai-line" style="color:red">AI Key Blocked or Invalid. Check GitHub Secrets.</div>`;
-        }
+            const d = await r.json();
+            history.innerHTML += `<div style="color:var(--accent); margin-bottom:10px; font-size:0.85rem;">"${d.candidates[0].content.parts[0].text}"</div>`;
+        } catch (e) { history.innerHTML += `<div style="color:red">AI Link Disrupt.</div>`; }
         history.scrollTop = history.scrollHeight;
     }
 
+    async function fetchActiveFlights() {
+        try {
+            const r = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${FLIGHT_KEY}&limit=10`);
+            const d = await r.json();
+            document.getElementById('flight-summary').innerHTML = d.data.map(f => `
+                <div style="display:flex; justify-content:space-between; font-size:0.7rem; padding:5px 0; border-bottom:1px solid #334155;">
+                    <span><b>${f.flight.iata || '??'}</b></span>
+                    <span style="color:${f.flight_status==='cancelled'?'red':'green'}">${f.flight_status.toUpperCase()}</span>
+                </div>
+            `).join('');
+        } catch (e) {}
+    }
+
     function switchTab(t) {
-        document.getElementById('guide-tab').style.display = t === 'guide' ? 'flex' : 'none';
-        document.getElementById('flights-tab').style.display = t === 'flights' ? 'flex' : 'none';
+        document.getElementById('ai-tab').style.display = (t==='ai') ? 'flex' : 'none';
+        document.getElementById('media-tab').style.display = (t==='media') ? 'flex' : 'none';
+        document.getElementById('flights-tab').style.display = (t==='flights') ? 'flex' : 'none';
         document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
         event.currentTarget.classList.add('active');
     }
 
-    function checkProximity() {
-        if(!userLoc) { alert("Enable GPS."); return; }
-        let inDanger = dangerZones.some(z => {
-            const R = 6371;
-            const dLat = (z.pos[0]-userLoc[0]) * Math.PI / 180, dLon = (z.pos[1]-userLoc[1]) * Math.PI / 180;
-            const a = Math.sin(dLat/2)**2 + Math.cos(userLoc[0]*Math.PI/180)*Math.cos(z.pos[0]*Math.PI/180)*Math.sin(dLon/2)**2;
-            return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))) < 6;
-        });
-        alert(inDanger ? "🚨 DANGER: Impact zone detected. Shelter immediately." : "✅ Status: Clear of primary fallout zones.");
+    function startTimer() {
+        setInterval(() => { document.getElementById('timer').innerText = `LIVE SCAN: ${new Date().toLocaleTimeString()}`; }, 1000);
     }
 
-    function startTimer() {
-        setInterval(() => {
-            document.getElementById('timer').innerText = `SYSTEM SCAN: ${new Date().toLocaleTimeString()}`;
-        }, 1000);
+    function checkProximity() {
+        if(!userLoc) return alert("Waiting for GPS...");
+        alert("Scan Complete: No immediate debris fallout detected in your current radius.");
     }
-    let userMarker = null;
 </script>
 </body>
 </html>
