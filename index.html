@@ -3,174 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>UAE EMERGENCY GUARDIAN | v3.2</title>
+    <title>UAE EMERGENCY GUARDIAN | v3.5 FINAL</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://js.puter.com/v2/"></script>
     <script src="env.js"></script>
     <style>
-        :root { --bg: #0f172a; --panel: #1e293b; --accent: #38bdf8; --danger: #ef4444; --text: #f8fafc; --sub: #94a3b8; }
+        :root { --bg: #020617; --panel: #1e293b; --accent: #38bdf8; --danger: #ef4444; --text: #f8fafc; --sub: #94a3b8; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         
-        /* Layout: Resizable container */
+        /* Layout */
         #app { display: none; flex-direction: column; height: 100vh; width: 100%; }
-        .sidebar { background: var(--panel); min-height: 200px; height: 55%; display: flex; flex-direction: column; overflow: hidden; }
-        
-        /* Drag handle to resize map vs sidebar */
-        .resizer { height: 10px; background: #334155; cursor: ns-resize; display: flex; align-items: center; justify-content: center; font-size: 8px; color: var(--sub); }
-        .resizer::after { content: "═══"; }
+        .sidebar { background: var(--panel); min-height: 280px; height: 50%; display: flex; flex-direction: column; overflow: hidden; }
+        .resizer { height: 14px; background: #334155; cursor: ns-resize; display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 10px; font-weight: bold; border-top: 1px solid var(--accent); }
+        #map { flex: 1; background: #000; }
 
-        #map { flex: 1; background: #000; touch-action: auto; }
-
-        .content-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
-        .card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; }
-        
-        .tab-nav { display: flex; background: #0f172a; padding: 5px; gap: 5px; }
+        /* UI Components */
+        .status-bar { background: #7f1d1d; color: white; padding: 10px; font-size: 0.8rem; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .tab-nav { display: flex; background: #0f172a; padding: 4px; gap: 4px; }
         .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; border-radius: 4px; font-size: 0.75rem; font-weight: bold; color: var(--sub); }
-        .tab.active { background: var(--accent); color: #000; }
+        .tab.active { background: var(--accent); color: #020617; }
         
-        .scroll-box { height: 130px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; font-size: 0.85rem; }
-        .input-grp { display: flex; gap: 5px; margin-top: 8px; }
+        .content { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; }
+        .scroll-box { height: 110px; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; font-size: 0.85rem; }
+        
         input { background: #1e293b; color: white; border: 1px solid #334155; padding: 10px; border-radius: 6px; flex: 1; }
-        button { background: var(--accent); color: #000; border: none; font-weight: bold; cursor: pointer; padding: 10px; border-radius: 6px; }
+        button { background: var(--accent); color: #000; border: none; font-weight: bold; padding: 10px 15px; border-radius: 6px; cursor: pointer; }
 
-        .portal { position: fixed; inset: 0; z-index: 9999; background: #0f172a; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .portal { position: fixed; inset: 0; z-index: 9999; background: #020617; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .pulse { animation: pulse-red 2s infinite; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
     </style>
 </head>
 <body>
 
 <div id="portal" class="portal">
-    <div style="font-size: 3.5rem;">🛡️</div>
-    <h2 style="letter-spacing: 1px;">GUARDIAN UAE</h2>
-    <button style="padding: 15px 40px; font-size: 1.1rem; margin-top: 20px; border-radius: 50px;" onclick="init()">OPEN DASHBOARD</button>
+    <div style="font-size: 4rem;">📡</div>
+    <h1 style="margin: 10px 0;">GUARDIAN UAE</h1>
+    <p style="color: var(--sub); margin-bottom: 20px;">SITUATION AWARENESS TERMINAL</p>
+    <button class="pulse" style="padding: 18px 50px; border-radius: 50px;" onclick="init()">INITIALIZE SYSTEM</button>
 </div>
 
 <div id="app">
-    <aside class="sidebar" id="sidebar">
-        <div style="background: #1e1b4b; padding: 12px; border-bottom: 3px solid var(--danger);">
-            <h1 style="margin:0; font-size:1rem;">EMERGENCY SITREP</h1>
-            <p id="timer" style="font-size:0.7rem; color:var(--accent); margin:5px 0 0;">SYNCING...</p>
-        </div>
+    <div class="status-bar">
+        <span>⚠️ REGIONAL ALERT: HIGH</span>
+        <span id="timer">--:--:--</span>
+    </div>
 
+    <aside class="sidebar" id="sidebar">
         <nav class="tab-nav">
-            <div class="tab active" onclick="switchTab('ai')">AI & NEWS</div>
+            <div class="tab active" onclick="switchTab('ai')">TACTICAL AI</div>
             <div class="tab" onclick="switchTab('media')">LIVE TV</div>
-            <div class="tab" onclick="switchTab('radar')">FLIGHTS</div>
+            <div class="tab" onclick="switchTab('radar')">RADAR</div>
         </nav>
 
-        <div id="ai-tab" class="content-area">
+        <div id="ai-tab" class="content">
             <div class="card">
-                <small style="color:var(--accent)">GUARDIAN AI</small>
-                <div id="chat-hist" class="scroll-box">"Standing by for safety queries."</div>
-                <div class="input-grp">
+                <small style="color:var(--accent)">ADVISOR</small>
+                <div id="chat-hist" class="scroll-box">"Awaiting instructions. Monitoring Abu Dhabi & Dubai airspace."</div>
+                <div style="display:flex; gap:5px; margin-top:10px;">
                     <input type="text" id="ai-in" placeholder="Ask AI...">
                     <button onclick="askAI()">SEND</button>
                 </div>
             </div>
             <div class="card">
                 <small style="color:var(--accent)">INTEL FEED</small>
-                <div id="news-list" class="scroll-box">Fetching news...</div>
+                <div id="news-list" class="scroll-box">Scanning NewsData.io...</div>
             </div>
         </div>
 
-        <div id="media-tab" class="content-area" style="display:none;">
+        <div id="media-tab" class="content" style="display:none;">
             <div class="card">
-                <small style="color:var(--accent)">LIVE NEWS STREAM</small>
+                <small style="color:var(--accent)">WION LIVE NEWS (ENGLISH)</small>
                 <iframe style="margin-top:10px; border-radius:8px;" width="100%" height="200" src="https://www.youtube.com/embed/wjjRjkFu1W8?autoplay=1" frameborder="0" allowfullscreen></iframe>
             </div>
         </div>
 
-        <div id="radar-tab" class="content-area" style="display:none;">
+        <div id="radar-tab" class="content" style="display:none;">
             <div class="card">
-                <small style="color:var(--accent)">FLIGHT TRACKER</small>
-                <div class="input-grp">
-                    <input type="text" id="fl-in" placeholder="Search Flight (e.g. EK530)">
-                    <button onclick="searchFlight()">SEARCH</button>
+                <div style="display:flex; gap:5px;">
+                    <input type="text" id="fl-in" placeholder="Search (e.g. EK530)">
+                    <button onclick="searchFlight()">TRACK</button>
                 </div>
-                <div id="fl-out" style="margin-top:10px; font-size:0.8rem; font-weight:bold; color:var(--danger);"></div>
+                <div id="fl-out" style="margin-top:8px; font-size:0.8rem; font-weight:bold; color:var(--danger);"></div>
             </div>
             <div class="card">
-                <small style="color:var(--accent)">LIVE AIRSPACE LIST</small>
-                <div id="flight-list" class="scroll-box">Scanning airspace...</div>
+                <small style="color:var(--accent)">ACTIVE AIRSPACE</small>
+                <div id="flight-list" class="scroll-box">Connecting to AviationStack...</div>
             </div>
         </div>
     </aside>
 
-    <div class="resizer" id="resizer"></div>
+    <div class="resizer" id="resizer">══ RESIZE MAP ══</div>
 
     <main id="map"></main>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map', { zoomControl: false }).setView([24.45, 54.37], 10);
+    const map = L.map('map', { zoomControl: false }).setView([24.45, 54.37], 9);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-    const zones = [
-        {n: "Khalifa City", p: [24.41, 54.58]}, {n: "Saadiyat", p: [24.53, 54.43]},
-        {n: "MBZ City", p: [24.31, 54.54]}, {n: "Bani Yas", p: [24.28, 54.63]}
-    ];
-    zones.forEach(z => L.circle(z.p, {radius: 3000, color: 'red', fillOpacity: 0.2}).addTo(map));
+    let zoneLayers = L.layerGroup().addTo(map);
+
+    // Initial Danger Zones (Feb 28, 2026 data)
+    function updateDangerZones() {
+        zoneLayers.clearLayers();
+        const alerts = [
+            {n: "Abu Dhabi (Active)", p: [24.45, 54.37], r: 8000},
+            {n: "Dubai (High)", p: [25.20, 55.27], r: 10000},
+            {n: "Khalifa City", p: [24.41, 54.58], r: 4000},
+            {n: "Saadiyat", p: [24.53, 54.43], r: 4000}
+        ];
+        alerts.forEach(z => {
+            L.circle(z.p, {radius: z.r, color: 'red', fillColor: '#f03', fillOpacity: 0.3}).addTo(zoneLayers)
+             .bindPopup(`<b>${z.n}</b><br>Incident Refresh Active`);
+        });
+        console.log("Map Zones Refreshed.");
+    }
 
     function init() {
         document.getElementById('portal').style.display = 'none';
         document.getElementById('app').style.display = 'flex';
         setTimeout(() => map.invalidateSize(), 200);
-        fetchNews(); fetchAllFlights(); startClock();
+        
+        updateDangerZones();
+        fetchNews();
+        fetchAllFlights();
+        
+        // AUTO REFRESH CLOCK & MAP (Every 20 seconds)
+        setInterval(() => {
+            document.getElementById('timer').innerText = new Date().toLocaleTimeString();
+        }, 1000);
+
+        setInterval(() => {
+            updateDangerZones(); // Simulates live coordinate updates
+            fetchAllFlights();   // Updates airspace list
+        }, 20000);
     }
 
-    // AI Logic Fix
     async function askAI() {
         const inp = document.getElementById('ai-in');
         const hist = document.getElementById('chat-hist');
         const txt = inp.value.trim();
-        if(!txt || !CONFIG.GEMINI_KEY) return;
+        if(!txt) return;
 
         hist.innerHTML += `<div style="text-align:right; margin:5px 0;">${txt}</div>`;
         inp.value = "";
-
-        try {
-            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${CONFIG.GEMINI_KEY}`, {
-                method: "POST", headers: {"Content-Type":"application/json"},
-                body: JSON.stringify({contents:[{parts:[{text:"Provide tactical emergency advice for: "+txt}]}]})
-            });
-            const d = await r.json();
-            hist.innerHTML += `<div style="color:var(--accent); margin-bottom:10px;">${d.candidates[0].content.parts[0].text}</div>`;
-        } catch(e) { hist.innerHTML += `<div style="color:red">AI link error. Check env.js key.</div>`; }
         hist.scrollTop = hist.scrollHeight;
-    }
 
-    // Flight List + Search
-    async function fetchAllFlights() {
         try {
-            const r = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${CONFIG.FLIGHT_KEY}&limit=10`);
-            const d = await r.json();
-            document.getElementById('flight-list').innerHTML = d.data.map(f => `
-                <div style="padding:5px 0; border-bottom:1px solid #334155;">
-                    <b>${f.flight.iata}</b>: ${f.departure.iata} ➔ ${f.arrival.iata} [${f.flight_status.toUpperCase()}]
-                </div>
-            `).join('');
-        } catch(e) {}
-    }
-
-    async function searchFlight() {
-        const fn = document.getElementById('fl-in').value.trim();
-        const out = document.getElementById('fl-out');
-        if(!fn) return;
-        out.innerText = "Searching...";
-        try {
-            const r = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${CONFIG.FLIGHT_KEY}&flight_iata=${fn}`);
-            const d = await r.json();
-            if(d.data && d.data.length > 0) {
-                const f = d.data[0];
-                out.innerHTML = `${f.flight.iata} STATUS: ${f.flight_status.toUpperCase()}`;
-            } else { out.innerText = "No results found."; }
-        } catch(e) { out.innerText = "Radar error."; }
+            const response = await puter.ai.chat(`Current Date: Feb 28, 2026. Act as a UAE emergency analyst. Question: ${txt}`);
+            hist.innerHTML += `<div style="color:var(--accent); margin-bottom:10px;">${response}</div>`;
+        } catch(e) { hist.innerHTML += `<div style="color:red">AI Error.</div>`; }
+        hist.scrollTop = hist.scrollHeight;
     }
 
     async function fetchNews() {
         try {
             const r = await fetch(`https://newsdata.io/api/1/news?apikey=${CONFIG.NEWS_KEY}&q=UAE&language=en`);
             const d = await r.json();
-            document.getElementById('news-list').innerHTML = d.results.slice(0,5).map(n => `<div style="margin-bottom:8px;"><a href="${n.link}" target="_blank" style="color:var(--accent); text-decoration:none;">${n.title}</a></div>`).join('');
+            document.getElementById('news-list').innerHTML = d.results.slice(0,5).map(n => `<div style="margin-bottom:8px; border-bottom:1px solid #334155; padding-bottom:4px;"><a href="${n.link}" target="_blank" style="color:var(--accent); text-decoration:none;">${n.title}</a></div>`).join('');
+        } catch(e) {}
+    }
+
+    async function fetchAllFlights() {
+        try {
+            const r = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${CONFIG.FLIGHT_KEY}&limit=8`);
+            const d = await r.json();
+            document.getElementById('flight-list').innerHTML = d.data.map(f => `<div>${f.flight.iata}: ${f.departure.iata}➔${f.arrival.iata} [${f.flight_status}]</div>`).join('');
+        } catch(e) {}
+    }
+
+    async function searchFlight() {
+        const fn = document.getElementById('fl-in').value.trim();
+        if(!fn) return;
+        try {
+            const r = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${CONFIG.FLIGHT_KEY}&flight_iata=${fn}`);
+            const d = await r.json();
+            if(d.data && d.data.length > 0) {
+                document.getElementById('fl-out').innerHTML = `${d.data[0].flight.iata} STATUS: ${d.data[0].flight_status.toUpperCase()}`;
+            } else { document.getElementById('fl-out').innerText = "Not found."; }
         } catch(e) {}
     }
 
@@ -178,18 +191,16 @@
     const resizer = document.getElementById('resizer');
     const sidebar = document.getElementById('sidebar');
     let isResizing = false;
-
-    resizer.addEventListener('mousedown', (e) => isResizing = true);
+    resizer.addEventListener('mousedown', () => isResizing = true);
     document.addEventListener('mousemove', (e) => {
         if (!isResizing) return;
-        const offsetTop = e.clientY;
-        sidebar.style.height = `${offsetTop}px`;
+        sidebar.style.height = `${e.clientY}px`;
         map.invalidateSize();
     });
     document.addEventListener('mouseup', () => isResizing = false);
-    
-    // Mobile touch support for resizing
-    resizer.addEventListener('touchstart', (e) => isResizing = true);
+
+    // Mobile touch
+    resizer.addEventListener('touchstart', () => isResizing = true);
     document.addEventListener('touchmove', (e) => {
         if (!isResizing) return;
         sidebar.style.height = `${e.touches[0].clientY}px`;
@@ -204,7 +215,6 @@
         document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
         event.currentTarget.classList.add('active');
     }
-    function startClock() { setInterval(() => { document.getElementById('timer').innerText = `LIVE: ${new Date().toLocaleTimeString()}`; }, 1000); }
 </script>
 </body>
 </html>
