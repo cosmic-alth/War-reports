@@ -3,27 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SITREP | UAE WAR MONITOR</title>
+    <title>SITREP | UAE EMERGENCY DASHBOARD</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --bg: #050505; --panel: #111; --text: #00ff41; --danger: #ff0000; --warn: #ffcc00; }
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; overflow: hidden; }
-        #app { display: grid; grid-template-columns: 1fr; grid-template-rows: auto 1fr 250px; height: 100vh; }
-        @media (min-width: 768px) { #app { grid-template-columns: 350px 1fr; grid-template-rows: 80px 1fr; } }
+        :root { --bg: #050505; --panel: #111; --text: #00ff41; --danger: #ff0000; --warn: #ffcc00; --blue: #0088ff; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; font-size: 13px; }
+        #app { display: grid; grid-template-columns: 1fr; grid-template-rows: auto 300px 1fr; height: 100vh; }
+        @media (min-width: 768px) { #app { grid-template-columns: 420px 1fr; grid-template-rows: 90px 1fr; } }
 
-        /* Top Header & Status */
-        .status-header { grid-column: 1 / -1; background: #1a0000; border-bottom: 2px solid var(--danger); padding: 10px 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between; }
-        .indicator { padding: 4px 8px; border: 1px solid var(--text); font-size: 0.75em; display: flex; align-items: center; gap: 5px; }
-        .status-closed { color: var(--danger); border-color: var(--danger); }
-        
-        /* Map Area */
-        #map { background: #000; width: 100%; height: 100%; border-right: 1px solid #333; }
+        .header { grid-column: 1 / -1; background: #1a0000; border-bottom: 2px solid var(--danger); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; }
+        #map { background: #000; border-right: 1px solid #333; }
+        .sidebar { background: var(--panel); overflow-y: auto; padding: 15px; border-top: 1px solid #333; display: flex; flex-direction: column; gap: 12px; }
 
-        /* Sidebar Feed */
-        .sidebar { background: var(--panel); overflow-y: auto; padding: 15px; border-top: 1px solid #333; }
-        .news-card { border-left: 3px solid var(--danger); background: #0a0a0a; padding: 10px; margin-bottom: 12px; font-size: 0.8em; }
+        /* Flight Checker Styling */
+        .checker-box { background: #1a1a1a; padding: 12px; border: 1px solid var(--blue); }
+        .checker-input { background: #000; border: 1px solid var(--text); color: var(--text); padding: 8px; width: 60%; font-family: inherit; }
+        .checker-btn { background: var(--blue); color: white; border: none; padding: 8px 12px; cursor: pointer; font-weight: bold; }
         
-        /* Animations */
+        .e-btn { background: #222; border: 1px solid #444; color: white; padding: 10px; text-decoration: none; text-align: center; font-size: 0.8em; }
+        .danger-btn { background: var(--danger); border-color: white; font-weight: bold; }
+        .comfort-msg { background: rgba(0, 255, 65, 0.1); border: 1px solid var(--text); padding: 10px; font-size: 0.85em; display: none; }
         .blink { animation: blinker 1s step-start infinite; }
         @keyframes blinker { 50% { opacity: 0; } }
     </style>
@@ -31,76 +30,105 @@
 <body>
 
 <div id="app">
-    <div class="status-header">
-        <div style="font-weight: bold; font-size: 1.1em;">MISSION: EPIC FURY <span class="blink" style="color:var(--danger)">● LIVE</span></div>
-        <div style="display: flex; gap: 10px;">
-            <div class="indicator status-closed">DXB: CLOSED</div>
-            <div class="indicator status-closed">AUH: CLOSED</div>
-            <div class="indicator" style="color:var(--warn); border-color:var(--warn);">AIRSPACE: PARTIAL CLOSURE</div>
-        </div>
+    <div class="header">
+        <div>SITREP: UAE <span class="blink" style="color:var(--danger)">● SHELTER ORDER</span></div>
+        <div id="briefing-timer" style="font-weight:bold; color:var(--warn);">NEXT BRIEFING: --:--:--</div>
     </div>
 
     <div id="map"></div>
 
     <div class="sidebar">
-        <div style="font-size: 0.7em; margin-bottom: 10px; color: #888;">INTEL FEED (REFRESH: 40s)</div>
-        <div id="news-feed">Awaiting secure uplink...</div>
+        <div id="welcome-protocol" class="comfort-msg">
+            <strong>SYSTEM:</strong> GPS linked. You are currently in a high-alert zone. Stay calm; UAE air defenses are active. Avoid windows.
+        </div>
+
+        <div class="checker-box">
+            <div style="font-size: 0.7em; color: var(--blue); margin-bottom: 5px;">FLIGHT STATUS (EK / AI / INDIGO)</div>
+            <input type="text" id="flightNum" class="checker-input" placeholder="e.g. EK530">
+            <button class="checker-btn" onclick="checkFlight()">CHECK</button>
+            <div id="flight-result" style="margin-top: 10px; font-size: 0.85em; color: #fff;"></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+            <a href="tel:999" class="e-btn danger-btn">POLICE: 999</a>
+            <a href="https://moi.gov.ae" target="_blank" class="e-btn">MOI ALERTS</a>
+            <a href="tel:80046342" class="e-btn">INDIA HELPLINE</a>
+            <a href="https://www.ncema.gov.ae" target="_blank" class="e-btn">NCEMA FEED</a>
+        </div>
+
+        <div id="news-feed" style="font-size: 0.8em;">Syncing intel...</div>
     </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // --- 1. CONFIGURATION ---
-    const API_KEY = 'pub_2c5d5364391f4045945da79ca4f87a50'; // Get from newsdata.io
+    const NEWS_KEY = 'pub_2c5d5364391f4045945da79ca4f87a50';
+    const FLIGHT_KEY = 'd5e173661faa7a4b822797e42666b6f3';
 
-    // --- 2. THE MAP (Leaflet + Esri Satellite) ---
-    // No Mapbox key needed. This uses free Esri Satellite tiles.
-    const map = L.map('map', { zoomControl: false }).setView([25.0, 55.0], 6);
-    
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri'
-    }).addTo(map);
+    // 1. MAP SETUP
+    const map = L.map('map', { zoomControl: false }).setView([24.45, 54.37], 7);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-    // Add Threat Zone Overlays (Persian Gulf Corridor)
-    const threatZone = [[31.0, 47.0], [31.0, 61.0], [22.0, 61.0], [22.0, 47.0]];
-    L.polygon(threatZone, {
-        color: 'red', weight: 1, fillColor: '#ff0000', fillOpacity: 0.15
-    }).addTo(map).bindPopup("CRITICAL THREAT ZONE: ACTIVE MISSILE TRACKS");
+    // DANGER ZONES
+    L.circle([24.48, 54.36], {color: 'red', radius: 5000, fillOpacity: 0.3}).addTo(map).bindPopup("<b>DANGER:</b> Shrapnel impact area.");
+    L.circle([25.20, 55.40], {color: 'orange', radius: 15000, fillOpacity: 0.2}).addTo(map).bindPopup("<b>RESTRICTED:</b> DXB Flight Path.");
 
-    // Add Markers for UAE Cities under alert
-    const targets = [
-        {name: "ABU DHABI (DEBRIS REPORTED)", pos: [24.45, 54.37]},
-        {name: "DUBAI (AIRSPACE CLOSED)", pos: [25.20, 55.27]}
-    ];
-    targets.forEach(t => {
-        L.circleMarker(t.pos, {color: 'red', radius: 8, fillOpacity: 0.8}).addTo(map).bindPopup(t.name);
-    });
-
-    // --- 3. LIVE NEWS UPDATER ---
-    async function updateNews() {
-        const container = document.getElementById('news-feed');
-        if (API_KEY.includes('PASTE')) {
-            container.innerHTML = "<div class='news-card'>[SYSTEM] Please enter your NewsData.io API Key in the code to see live updates.</div>";
+    // 2. FLIGHT CHECKER FUNCTION
+    async function checkFlight() {
+        const num = document.getElementById('flightNum').value.trim();
+        const resDiv = document.getElementById('flight-result');
+        if(!FLIGHT_KEY || FLIGHT_KEY.includes('PASTE')) {
+            resDiv.innerHTML = "Error: Aviationstack Key missing.";
             return;
         }
+        resDiv.innerHTML = "Querying radar...";
         try {
-            // Searches for UAE, Iran strikes, and B-2 mentions
-            const res = await fetch(`https://newsdata.io/api/1/news?apikey=${API_KEY}&q=UAE%20Iran%20strike%20OR%20B-2&language=en`);
+            const res = await fetch(`http://api.aviationstack.com/v1/flights?access_key=${FLIGHT_KEY}&flight_iata=${num}`);
             const data = await res.json();
-            container.innerHTML = data.results.slice(0, 10).map(art => `
-                <div class="news-card">
-                    <strong>${art.title}</strong><br>
-                    <small style="color:#888;">Source: ${art.source_id} | ${new Date().toLocaleTimeString()}</small>
-                </div>
-            `).join('');
-        } catch (e) {
-            container.innerHTML = "<div class='news-card'>Signal jammed. Retrying uplink...</div>";
-        }
+            if(data.data && data.data.length > 0) {
+                const f = data.data[0];
+                resDiv.innerHTML = `STATUS: <b style="color:red">${f.flight_status.toUpperCase()}</b><br>DEP: ${f.departure.airport}<br>ARR: ${f.arrival.airport}`;
+            } else {
+                resDiv.innerHTML = "No live data. Airspace likely closed.";
+            }
+        } catch (e) { resDiv.innerHTML = "Signal loss. Flight likely diverted."; }
     }
 
-    // Refresh Cycle
-    setInterval(updateNews, 40000);
-    updateNews();
+    // 3. NEWS FEED
+    async function getNews() {
+        const feed = document.getElementById('news-feed');
+        if (NEWS_KEY.includes('PASTE')) return;
+        try {
+            const res = await fetch(`https://newsdata.io/api/1/news?apikey=${NEWS_KEY}&q=UAE%20missile%20OR%20Iran%20strike&language=en`);
+            const data = await res.json();
+            feed.innerHTML = data.results.slice(0, 5).map(art => `<div style="border-left:2px solid var(--text); padding:5px; margin-bottom:10px;"><b>${art.title}</b></div>`).join('');
+        } catch (e) { feed.innerHTML = "Offline."; }
+    }
+
+    // 4. TIMER & LOCATION
+    function updateTimer() {
+        const now = new Date();
+        const next = new Date();
+        next.setHours(18, 0, 0); 
+        let diff = next - now;
+        if(diff < 0) diff += 86400000;
+        const h = Math.floor(diff/3600000);
+        const m = Math.floor((diff%3600000)/60000);
+        const s = Math.floor((diff%60000)/1000);
+        document.getElementById('briefing-timer').innerText = `NEXT BRIEFING: ${h}:${m}:${s}`;
+    }
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(p => {
+            map.setView([p.coords.latitude, p.coords.longitude], 12);
+            L.marker([p.coords.latitude, p.coords.longitude]).addTo(map).bindPopup("YOU").openPopup();
+            document.getElementById('welcome-protocol').style.display = 'block';
+        });
+    }
+
+    setInterval(updateTimer, 1000);
+    setInterval(getNews, 40000);
+    getNews();
 </script>
 </body>
 </html>
